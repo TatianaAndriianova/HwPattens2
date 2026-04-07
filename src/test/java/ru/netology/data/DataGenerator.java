@@ -1,39 +1,71 @@
 package ru.netology.data;
 
 import com.github.javafaker.Faker;
-import ru.netology.dto.RegistrationDto;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.filter.log.LogDetail;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import lombok.Value;
+import lombok.experimental.UtilityClass;
+
+import java.util.Locale;
 
 import static io.restassured.RestAssured.given;
-import static ru.netology.RequestSpecProvider.SPEC;
 
+@UtilityClass
 public class DataGenerator {
 
-    private static final Faker faker = new Faker();
+    private static final RequestSpecification requestSpec = new RequestSpecBuilder()
+            .setBaseUri("http://localhost")
+            .setPort(9999)
+            .setAccept(ContentType.JSON)
+            .setContentType(ContentType.JSON)
+            .log(LogDetail.ALL)
+            .build();
 
-    private DataGenerator() {
-    }
+    private static final Faker faker = new Faker(new Locale("en"));
 
-    public static RegistrationDto createUser(String status) {
-        RegistrationDto user = new RegistrationDto(
-                faker.name().username(),
-                faker.internet().password(8, 16),
-                status
-        );
+    private static void sendRequest(RegistrationDto user) {
         given()
-                .spec(SPEC)
+                .spec(requestSpec)
                 .body(user)
                 .when()
                 .post("/api/system/users")
                 .then()
                 .statusCode(200);
-        return user;
     }
 
-    public static RegistrationDto getActiveUser() {
-        return createUser("active");
+    public static String getRandomLogin() {
+        return faker.name().username();
     }
 
-    public static RegistrationDto getBlockedUser() {
-        return createUser("blocked");
+    public static String getRandomPassword() {
+        return faker.internet().password();
+    }
+
+    public static class Registration {
+        private Registration() {
+        }
+
+        public static RegistrationDto getUser(String status) {
+            return new RegistrationDto(
+                    getRandomLogin(),
+                    getRandomPassword(),
+                    status
+            );
+        }
+
+        public static RegistrationDto getRegisteredUser(String status) {
+            RegistrationDto registeredUser = getUser(status);
+            sendRequest(registeredUser);
+            return registeredUser;
+        }
+    }
+
+    @Value
+    public static class RegistrationDto {
+        String login;
+        String password;
+        String status;
     }
 }

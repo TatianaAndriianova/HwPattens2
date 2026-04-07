@@ -1,75 +1,77 @@
 package ru.netology;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import ru.netology.data.DataGenerator;
-import ru.netology.dto.LoginDto;
-import ru.netology.dto.RegistrationDto;
 
-import static io.restassured.RestAssured.given;
-import static ru.netology.RequestSpecProvider.SPEC;
+import static com.codeborne.selenide.Condition.text;
+import static com.codeborne.selenide.Selenide.$;
+import static com.codeborne.selenide.Selenide.open;
+import static ru.netology.data.DataGenerator.Registration.getRegisteredUser;
+import static ru.netology.data.DataGenerator.Registration.getUser;
+import static ru.netology.data.DataGenerator.getRandomLogin;
+import static ru.netology.data.DataGenerator.getRandomPassword;
 
 public class AuthTest {
 
-    @Test
-    void shouldLoginWithActiveUser() {
-        RegistrationDto user = DataGenerator.getActiveUser();
-
-        given()
-                .spec(SPEC)
-                .body(new LoginDto(user.getLogin(), user.getPassword()))
-                .when()
-                .post("/api/auth")
-                .then()
-                .statusCode(200);
+    @BeforeEach
+    public void setup() {
+        open("http://localhost:9999");
     }
 
     @Test
-    void shouldNotLoginWithBlockedUser() {
-        RegistrationDto user = DataGenerator.getBlockedUser();
+    public void shouldSuccessfulLoginIfRegisteredActiveUser() {
+        var registeredUser = getRegisteredUser("active");
 
-        given()
-                .spec(SPEC)
-                .body(new LoginDto(user.getLogin(), user.getPassword()))
-                .when()
-                .post("/api/auth")
-                .then()
-                .statusCode(400);
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+
+        $("[id=root]").shouldHave(text("Личный кабинет")); // предполагаемый текст успешного входа
     }
 
     @Test
-    void shouldNotLoginWithWrongPassword() {
-        RegistrationDto user = DataGenerator.getActiveUser();
+    public void shouldGetErrorIfNotRegisteredUser() {
+        var notRegisteredUser = getUser("active");
 
-        given()
-                .spec(SPEC)
-                .body(new LoginDto(user.getLogin(), "wrongPassword123"))
-                .when()
-                .post("/api/auth")
-                .then()
-                .statusCode(400);
+        $("[data-test-id=login] input").setValue(notRegisteredUser.getLogin());
+        $("[data-test-id=password] input").setValue(notRegisteredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+
+        $("[data-test-id=error-notification]").shouldHave(text("Ошибка! Неверно указан логин или пароль"));
     }
 
     @Test
-    void shouldNotLoginWithWrongLogin() {
-        RegistrationDto user = DataGenerator.getActiveUser();
+    public void shouldGetErrorIfBlockedUser() {
+        var blockedUser = getRegisteredUser("blocked");
 
-        given()
-                .spec(SPEC)
-                .body(new LoginDto("nonexistent_user_xyz", user.getPassword()))
-                .when()
-                .post("/api/auth")
-                .then()
-                .statusCode(400);
+        $("[data-test-id=login] input").setValue(blockedUser.getLogin());
+        $("[data-test-id=password] input").setValue(blockedUser.getPassword());
+        $("[data-test-id=action-login]").click();
+
+        $("[data-test-id=error-notification]").shouldHave(text("Ошибка! Пользователь заблокирован"));
     }
 
     @Test
-    void shouldNotLoginWithNonExistentUser() {
-        given()
-                .spec(SPEC)
-                .body(new LoginDto("ghost_user_xyz", "somePassword1"))
-                .when()
-                .post("/api/auth")
-                .then()
-                .statusCode(400);
+    public void shouldGetErrorIfWrongLogin() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongLogin = getRandomLogin();
+
+        $("[data-test-id=login] input").setValue(wrongLogin);
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+
+        $("[data-test-id=error-notification]").shouldHave(text("Ошибка! Неверно указан логин или пароль"));
+    }
+
+    @Test
+    public void shouldGetErrorIfWrongPassword() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongPassword = getRandomPassword();
+
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(wrongPassword);
+        $("[data-test-id=action-login]").click();
+
+        $("[data-test-id=error-notification]").shouldHave(text("Ошибка! Неверно указан логин или пароль"));
     }
 }
